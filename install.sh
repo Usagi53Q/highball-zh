@@ -110,6 +110,29 @@ else
     codesign --force --sign - "$TARGET_BIN"
 fi
 
+# 8. 修复已下载的 Wine 11 (x64-crossover26.3-*) 引擎清单遗漏 steamwebhelper.exe 参数导致 Steam 黑屏的问题
+ENGINES_DIR="$HOME/Library/Application Support/Highball/engines"
+if [ -d "$ENGINES_DIR" ] && command -v python3 >/dev/null 2>&1; then
+    python3 - "$ENGINES_DIR" <<'PYEOF'
+import glob, json, os, sys
+engines_dir = sys.argv[1]
+for p in glob.glob(os.path.join(engines_dir, "x64-crossover26.3-*", "manifest.json")):
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        app_defs = data.setdefault("appDefaults", {})
+        if "steamwebhelper.exe" not in app_defs:
+            app_defs["steamwebhelper.exe"] = {
+                "CommandLineAppend": "--no-sandbox --in-process-gpu --disable-gpu"
+            }
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+                f.write("\n")
+    except Exception:
+        pass
+PYEOF
+fi
+
 echo "=================================================="
 echo "  汉化补丁 [${LANG_LABEL}] 安装完成！"
 echo "  现在可以直接打开 Highball 体验完整中文界面。"
